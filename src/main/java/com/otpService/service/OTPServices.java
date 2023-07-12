@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class OTPServices {
@@ -77,5 +79,33 @@ public class OTPServices {
         }
 
         return otpBean;
+    }
+
+    public Status verifyOTP(Map<String, String> otpVerify){
+        Optional<OTPBean> optionalOTPBean = otpRepository.findById(Long.parseLong(otpVerify.get("transactionId")));
+
+        if (optionalOTPBean.isPresent()){
+            OTPBean otpEntity = optionalOTPBean.get();
+            if(Integer.parseInt(otpVerify.get("otp")) == otpEntity.getOtp()){
+                otpEntity.setVerified(true);
+                otpRepository.save(otpEntity);
+                Status status = new Status();
+                status.setHttpStatus(HttpStatus.OK);
+                status.setStatusMessage("OTP verified successfully");
+                return status;
+            }
+            else{
+                Status status = new Status();
+                status.setHttpStatus(HttpStatus.BAD_REQUEST);
+                status.setStatusMessage("Invalid OTP");
+                return status;
+            }
+        }
+        else{
+            Status status = new Status();
+            status.setHttpStatus(HttpStatus.BAD_REQUEST);
+            status.setStatusMessage("Invalid transactionId");
+            return status;
+        }
     }
 }
