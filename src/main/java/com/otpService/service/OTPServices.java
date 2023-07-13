@@ -6,6 +6,8 @@ import com.otpService.bean.Status;
 import com.otpService.repository.OTPRepository;
 import com.otpService.restClients.MailClient;
 import com.otpService.utils.OTPUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,8 @@ import java.util.Optional;
 
 @Service
 public class OTPServices {
+
+    private final Logger logger = LoggerFactory.getLogger(OTPServices.class);
 
     @Value("${cricfizz.sendOTP.subject}")
     private String subject;
@@ -38,15 +42,21 @@ public class OTPServices {
 
     public OTPBean sendOTP(String mailId){
         final Integer randomOTP = otpUtils.generateRandomOTP();
-
-        body = body.replace("otpValue", randomOTP.toString());
+        String message = body;
+        message = message.replace("otpValue", randomOTP.toString());
         MailBean mailBean = new MailBean();
         mailBean.setToMailId(mailId);
         mailBean.setSubject(subject);
-        mailBean.setBody(body);
+        mailBean.setBody(message);
         ResponseEntity<String> responseEntity = null;
         try {
              responseEntity = mailClient.sendMail(mailBean);
+             if(responseEntity.getStatusCode().is2xxSuccessful()) {
+                 logger.info("OTP Sent Successfully to mailID: {}",mailId);
+             }
+             else{
+                 logger.error("Failed to send OTP to mailID: {}",mailId);
+             }
         }
         catch (Exception e){
             responseEntity = new ResponseEntity<>("Unable To Send Mail To "+mailBean.getToMailId()
@@ -92,12 +102,14 @@ public class OTPServices {
                 Status status = new Status();
                 status.setHttpStatus(HttpStatus.OK);
                 status.setStatusMessage("OTP verified successfully");
+                logger.info("OTP verified successfully for mailId: {}",otpEntity.getMailId());
                 return status;
             }
             else{
                 Status status = new Status();
                 status.setHttpStatus(HttpStatus.BAD_REQUEST);
                 status.setStatusMessage("Invalid OTP");
+                logger.info("Invalid OTP for mailId: {}",otpEntity.getMailId());
                 return status;
             }
         }
@@ -105,6 +117,7 @@ public class OTPServices {
             Status status = new Status();
             status.setHttpStatus(HttpStatus.BAD_REQUEST);
             status.setStatusMessage("Invalid transactionId");
+            logger.error("Invalid transactionId: {}",otpVerify.get("transactionId"));
             return status;
         }
     }
